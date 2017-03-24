@@ -28,6 +28,12 @@ module Legato
       end
     end
 
+    def define_sequence_segment_filter(name, &block)
+      (class << self; self; end).instance_eval do
+        define_method(name) {|*args| apply_sequence_segment_filter(*args, &block)}
+      end
+    end
+
     def self.define_filter_operators(*methods)
       methods.each do |method|
         class_eval <<-CODE
@@ -38,21 +44,33 @@ module Legato
       end
     end
 
+    def self.define_sequence_segment_filter_operators(*methods)
+      methods.each do |method|
+        class_eval <<-CODE
+          def #{method}(field, value, join_character=';->>')
+            Filter.new(self, field, :#{method}, value, join_character)
+          end
+        CODE
+      end
+    end
+
     attr_reader :parent_klass
     attr_accessor :profile, :start_date, :end_date
     attr_accessor :sort, :limit, :offset, :quota_user, :user_ip, :sampling_level, :segment_id #, :segment # individual, overwritten
     attr_accessor :filters, :segment_filters # combined, can be appended to
+    attr_accessor :sequence_segment_filters
     attr_accessor :tracking_scope
 
     def self.from_query(query)
       new(query.parent_klass, query.tracking_scope, query.filters, query.segment_filters)
     end
 
-    def initialize(klass, tracking_scope = "ga", filters = FilterSet.new, segment_filters = FilterSet.new)
+    def initialize(klass, tracking_scope = "ga", filters = FilterSet.new, segment_filters = FilterSet.new, sequence_segment_filters = FilterSet.new)
       @loaded = false
       @parent_klass = klass
       self.filters = filters
       self.segment_filters = segment_filters
+      self.sequence_segment_filters = sequence_segment_filters
       self.start_date = Time.now - MONTH
       self.end_date = Time.now
       self.tracking_scope = tracking_scope
@@ -63,6 +81,10 @@ module Legato
 
       klass.segments.each do |name, block|
         define_segment_filter(name, &block)
+      end
+
+      klass.sequence_segments.each do |name, block|
+        define_sequence_segment_filter(name, &block)
       end
     end
 
@@ -76,6 +98,10 @@ module Legato
 
     def apply_segment_filter(*args, &block)
       apply_filter_expression(self.segment_filters, *args, &block)
+    end
+
+    def apply_sequence_segment_filter(*args, &block)
+      apply_filter_expression(self.sequence_segment_filters, *args, &block)
     end
 
     def apply_filter_expression(filter_set, *args, &block)
@@ -150,6 +176,10 @@ module Legato
 
     define_filter_operators :eql, :not_eql, :gt, :gte, :lt, :lte, :matches,
       :does_not_match, :contains, :does_not_contain, :substring, :not_substring
+
+    define_sequence_segment_filter_operators :seq_eql, :seq_not_eql, :seq_gt, :seq_gte, :seq_lt, :seq_lte,
+                                             :seq_matches, :seq_does_not_match, :seq_contains, :seq_does_not_contain,
+                                             :seq_substring, :seq_not_substring
 
     def loaded?
       @loaded
@@ -228,6 +258,10 @@ module Legato
       @segment_id = "gaid::#{segment_id}"
     end
 
+    def sequence_segment
+      "sessions::sequence::#{sequence_segment_filters.to_params}" if sequence_segment_filters.any?
+    end
+
     def profile_id
       profile && Legato.to_ga_string(profile.id)
     end
@@ -272,7 +306,7 @@ module Legato
         'end-date' => Legato.format_time(end_date),
         'max-results' => limit,
         'start-index' => offset,
-        'segment' => segment_id || segment,
+        'segment' => segment_id || segment || sequence_segment,
         'filters' => filters.to_params, # defaults to AND filtering
         'fields' => REQUEST_FIELDS,
         'quotaUser' => quota_user,

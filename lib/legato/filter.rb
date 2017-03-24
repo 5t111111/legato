@@ -16,9 +16,22 @@ module Legato
       :substring => '=@',
       :not_substring => '!@',
       :contains => '=~', # regex
-      :does_not_contain => '!~' # regex
+      :does_not_contain => '!~', # regex
       # :desc => '-',
-      # :descending => '-'
+      # :descending => '-',
+      # sequence segmtn
+      :seq_eql => '==',
+      :seq_not_eql => '!=',
+      :seq_gt => '>',
+      :seq_gte => '>=',
+      :seq_lt => '<',
+      :seq_lte => '<=',
+      :seq_matches => '==',
+      :seq_does_not_match => '!=',
+      :seq_substring => '=@',
+      :seq_not_substring => '!@',
+      :seq_contains => '=~', # regex
+      :seq_does_not_contain => '!~' # regex
     }
 
     def initialize(query, field, operator, value, join_character)

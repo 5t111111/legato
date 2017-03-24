@@ -41,6 +41,11 @@ module Legato
     end
     alias :segment_filters :segments
 
+    def sequence_segments
+      @sequence_segments ||= {}
+    end
+    alias :sequence_segment_filters :sequence_segments
+
     # Define a segment
     #
     # @param name [Symbol] the class method name for the resulting segment
@@ -49,6 +54,10 @@ module Legato
     # @return [Proc] the body of newly defined method
     def segment(name, &block)
       add_method_to_set(name, :segment_filters, &block)
+    end
+
+    def sequence_segment(name, &block)
+      add_method_to_set(name, :sequence_segment_filters, &block)
     end
 
     # Set the class used to make new instances of returned results from GA
